@@ -8,19 +8,19 @@ export interface WellsLoadResult {
   collection: WellFeatureCollection
   source: WellSource
   metadata: WellsMetadata
-  /** Why the local snapshot is shown instead of Databricks data. */
+  /** Why the local snapshot is shown instead of API data. */
   fallbackReason: string | null
 }
 
 /**
  * Data-access layer for wells. Components never fetch directly — they go
- * through `useWells()`. Loads from the FloodIQ API (Databricks); if the backend
+ * through `useWells()`. Loads from the FloodIQ API (CSV export or Databricks); if the backend
  * is down or not configured, falls back to the local parquet snapshot and says so.
  */
 export async function fetchWells(signal?: AbortSignal): Promise<WellsLoadResult> {
   try {
     const collection = await floodiqApi.wells(signal)
-    return { ...toWells(collection), collection, source: 'databricks', metadata: collection.metadata ?? {}, fallbackReason: null }
+    return { ...toWells(collection), collection, source: collection.metadata?.source === 'csv' ? 'csv' : 'databricks', metadata: collection.metadata ?? {}, fallbackReason: null }
   } catch (e) {
     if (signal?.aborted) throw e
     // Only fall back when the backend is unavailable; real API errors (bad schema, auth) surface as errors.

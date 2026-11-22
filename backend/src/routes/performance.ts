@@ -19,7 +19,7 @@ export function performanceRouter(s: Services) {
   const r = Router()
   r.get('/', async (req, res) => {
     const q = query.parse(req.query)
-    const [summary, rows] = await Promise.all([s.analytics.performanceSummary(), s.analytics.performanceRows(q)])
+    const [summary, rows] = await Promise.all([s.data.performanceSummary(), s.data.performanceRows(q)])
     res.json({ summary, ...rows })
   })
   return r

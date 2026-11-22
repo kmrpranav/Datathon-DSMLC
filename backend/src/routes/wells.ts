@@ -20,11 +20,11 @@ export function wellsRouter(s: Services) {
   const r = Router()
   r.get('/', async (req, res) => {
     const filters = listQuery.parse(req.query)
-    res.json(await s.wells.list(filters))
+    res.json(await s.data.wells(filters))
   })
   r.get('/:uwi', async (req, res) => {
     const uwi = uwiSchema.parse(decodeURIComponent(req.params.uwi))
-    res.json(await s.wells.detail(uwi))
+    res.json(await s.data.well(uwi))
   })
   return r
 }

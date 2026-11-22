@@ -25,7 +25,7 @@ export type TableKey = keyof typeof TABLES
 
 /** Logical fields and candidate column names (case-insensitive), in priority order. */
 export const FIELD_CANDIDATES = {
-  uwi: ['uwi', 'well_uwi', 'well_id'],
+  uwi: ['uwi', 'well_uwi', 'well_id', 'candidate', 'candidate_uwi'],
   formattedUwi: ['formatted_uwi', 'uwi_formatted', 'display_uwi'],
   wellName: ['well_name', 'name'],
   latitude: ['surface_latitude', 'latitude', 'lat', 'bh_latitude'],
@@ -44,24 +44,28 @@ export const FIELD_CANDIDATES = {
   everInjected: ['ever_injected', 'has_injected', 'was_injector', 'is_injector', 'historically_injected'],
   oilTotal: ['cum_oil_m3', 'cumulative_oil_m3', 'total_oil_m3', 'oil_total_m3', 'total_oil_produced_m3', 'cum_oil', 'total_oil'],
   injectionTotal: [
+    'total_inj_m3', 'cum_inj_m3',
     'cum_injected_water_m3', 'cumulative_injected_water_m3', 'total_injected_water_m3', 'cum_injection_m3',
     'cumulative_injection_m3', 'total_injection_m3', 'total_injection_volume_m3', 'cum_injection', 'total_injection',
   ],
-  recordDate: ['as_of_date', 'snapshot_date', 'latest_date', 'last_production_date', 'period_end', 'production_date', 'date', 'month', 'updated_at'],
+  // Role start dates (used to order roles when a well has both histories)
+  productionStartDate: ['on_production_date', 'first_production_date', 'production_start_date'],
+  injectionStartDate: ['first_injection_date', 'injection_start_date', 'on_injection_date'],
+  recordDate: ['as_of_date', 'snapshot_date', 'latest_date', 'last_production_date', 'period_end', 'production_date', 'date', 'month', 'week', 'updated_at'],
   // Pairs
   injectorUwi: ['injector_uwi', 'inj_uwi', 'injector', 'injector_well', 'uwi_injector'],
   producerUwi: ['producer_uwi', 'prod_uwi', 'producer', 'producer_well', 'uwi_producer'],
   distance: ['distance_m', 'distance_km', 'distance_meters', 'distance', 'dist_m', 'dist_km', 'separation_m'],
   // Ranking / economics
   rank: ['rank', 'conversion_rank', 'candidate_rank', 'ranking', 'overall_rank'],
-  score: ['conversion_score', 'score', 'candidate_score', 'ranking_score', 'priority_score', 'total_score'],
+  score: ['conversion_score', 'score', 'candidate_score', 'ranking_score', 'priority_score', 'total_score', 'oil_per_m3_water'],
   scenario: ['scenario', 'scenario_name', 'case', 'case_name', 'price_scenario'],
 } as const
 export type LogicalField = keyof typeof FIELD_CANDIDATES
 
 /** Which logical fields to look for in which table. */
 export const TABLE_FIELDS: Record<TableKey, LogicalField[]> = {
-  wellMaster: ['uwi', 'formattedUwi', 'wellName', 'latitude', 'longitude', 'operatingArea', 'province', 'status', 'flowDirection', 'wellType', 'everProduced', 'everInjected', 'oilTotal', 'injectionTotal', 'recordDate'],
+  wellMaster: ['uwi', 'formattedUwi', 'wellName', 'latitude', 'longitude', 'operatingArea', 'province', 'status', 'flowDirection', 'wellType', 'everProduced', 'everInjected', 'oilTotal', 'injectionTotal', 'productionStartDate', 'injectionStartDate', 'recordDate'],
   wellPerformance: ['uwi', 'wellName', 'operatingArea', 'performanceClass', 'status', 'flowDirection', 'everProduced', 'everInjected', 'oilTotal', 'injectionTotal', 'recordDate'],
   pairs: ['injectorUwi', 'producerUwi', 'distance', 'operatingArea'],
   producerFeatures: ['uwi', 'operatingArea', 'recordDate'],

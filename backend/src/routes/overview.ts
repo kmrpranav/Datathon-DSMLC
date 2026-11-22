@@ -5,7 +5,7 @@ import type { Services } from '../services/container.js'
 export function overviewRouter(s: Services) {
   const r = Router()
   r.get('/', async (_req, res) => {
-    res.json(await s.analytics.overview())
+    res.json(await s.data.overview())
   })
   return r
 }

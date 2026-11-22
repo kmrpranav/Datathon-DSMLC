@@ -6,7 +6,7 @@ import { loadConfig } from '../src/config/env.js'
 import { FakeWarehouse } from './fakeWarehouse.js'
 
 const TOKEN = 'dapi-test-secret-123'
-const env = { NODE_ENV: 'test', DATABRICKS_HOST: 'https://example.cloud.databricks.com', DATABRICKS_WAREHOUSE_ID: 'abc123', DATABRICKS_TOKEN: TOKEN, FRONTEND_ORIGIN: 'http://localhost:5173' } as NodeJS.ProcessEnv
+const env = { NODE_ENV: 'test', DATA_SOURCE: 'databricks', DATABRICKS_HOST: 'https://example.cloud.databricks.com', DATABRICKS_WAREHOUSE_ID: 'abc123', DATABRICKS_TOKEN: TOKEN, FRONTEND_ORIGIN: 'http://localhost:5173' } as NodeJS.ProcessEnv
 
 function setup(missing: string[] = []) {
   const sql = new FakeWarehouse(missing)
@@ -24,7 +24,7 @@ describe('GET /api/health', () => {
   })
 
   it('flags missing / placeholder config and data routes return 503', async () => {
-    const app = createApp(createServices(loadConfig({ NODE_ENV: 'test', DATABRICKS_TOKEN: 'YOUR_PRIVATE_TOKEN' } as NodeJS.ProcessEnv)), { logRequests: false })
+    const app = createApp(createServices(loadConfig({ NODE_ENV: 'test', DATA_SOURCE: 'databricks', DATABRICKS_TOKEN: 'YOUR_PRIVATE_TOKEN' } as NodeJS.ProcessEnv)), { logRequests: false })
     const h = await request(app).get('/api/health').expect(200)
     expect(h.body.status).toBe('degraded')
     expect(h.body.databricks.missing).toEqual(['DATABRICKS_HOST', 'DATABRICKS_WAREHOUSE_ID', 'DATABRICKS_TOKEN'])

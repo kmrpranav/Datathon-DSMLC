@@ -90,13 +90,13 @@ export default function OverviewPage() {
         </div>
       </section>
 
-      {/* Live field summary (Databricks) */}
+      {/* Field summary (backend: CSV export or Databricks) */}
       <section aria-labelledby="live-heading">
         <SectionHeading
           id="live-heading"
           eyebrow="Field snapshot"
-          title="Field summary from Databricks"
-          description="Aggregated live from the team's Unity Catalog tables: well master, performance classes, injector–producer pairs and saved conversion results."
+          title="Field summary"
+          description="Aggregated by the FloodIQ API from the team's exported Databricks tables: well master, performance classes and saved conversion results. Injector–producer pairs appear when that table is available."
         />
         <div className="mt-6">
           <LiveSummary />

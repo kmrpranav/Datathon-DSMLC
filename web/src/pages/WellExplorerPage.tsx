@@ -63,20 +63,20 @@ export default function WellExplorerPage() {
         <WellFilterBar filters={filters} onChange={setFilters} operatingAreas={areas} performanceClasses={performanceClasses} />
         {status === 'ready' && (
           <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
-            {source === 'databricks' ? (
+            {source !== 'static' ? (
               <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted">
                 <Database className="size-3.5 text-primary" />
-                <span>Live from Databricks</span>
+                <span>{source === 'csv' ? 'Loaded from the local CSV export' : 'Live from Databricks'}</span>
                 <span className="font-mono text-[11px] text-[#A39C92]">{metadata?.tables?.join(' + ')}</span>
               </p>
             ) : (
               <Notice tone="neutral">
                 <span className="inline-flex items-center gap-1.5 font-medium text-ink"><HardDrive className="size-3.5" /> Showing the local parquet snapshot.</span>{' '}
-                {fallbackReason} Performance classes come from Databricks and appear once the backend is connected.{' '}
+                {fallbackReason} Performance classes come from the FloodIQ API and appear once the backend is running.{' '}
                 <button onClick={reload} className="font-medium text-primary hover:text-primary-hover cursor-pointer">Retry</button>
               </Notice>
             )}
-            {source === 'databricks' && metadata?.warnings?.map((w) => <Notice key={w} tone="neutral">{w}</Notice>)}
+            {source !== 'static' && metadata?.warnings?.map((w) => <Notice key={w} tone="neutral">{w}</Notice>)}
           </div>
         )}
       </Card>
@@ -130,7 +130,7 @@ export default function WellExplorerPage() {
                 <h2 className="text-[15px] font-semibold tracking-[-0.01em]">Wells</h2>
                 <p className="mt-0.5 text-[13px] text-muted">
                   Select a row to locate the well on the map.{' '}
-                  {source === 'static' ? 'Latest values are the most recent non-empty daily reading.' : 'Performance classes are the existing labels from bushra_well_performance.'}
+                  {source === 'static' ? 'Latest values are the most recent non-empty daily reading.' : `Performance classes are the existing labels from ${metadata?.tables?.[1] ?? 'the performance table'}.`}
                 </p>
               </div>
             </div>

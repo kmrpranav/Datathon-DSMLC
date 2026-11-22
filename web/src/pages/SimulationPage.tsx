@@ -95,7 +95,7 @@ export default function SimulationPage() {
       <PageHeader
         eyebrow="Model"
         title="Waterflood Simulation"
-        subtitle="Explore potential injection and production scenarios. Saved conversion results from Databricks can be shown on the map; live model inference is not connected yet."
+        subtitle="Explore potential injection and production scenarios. Saved conversion results can be shown on the map; live model inference is not connected yet."
         actions={<Button size="lg" icon={<Play className="size-4 fill-current" />} onClick={run}>Run Simulation</Button>}
       />
 
@@ -138,7 +138,7 @@ export default function SimulationPage() {
         }
       >
         No simulation was run and no new predictions were generated. The forecasting model isn't deployed to a serving endpoint yet. You can load the
-        team's <span className="font-medium text-ink">saved conversion ranking</span> from Databricks onto the map instead. Those results are model-generated
+        team's <span className="font-medium text-ink">saved conversion ranking</span> onto the map instead. Those results are model-generated
         estimates, not live inference.
       </Modal>
     </div>

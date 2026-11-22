@@ -7,6 +7,9 @@ import { TableReader } from '../repositories/tableQuery.js'
 import { AnalyticsRepository } from '../repositories/analytics.js'
 import { unconfiguredModelServing, type ModelServingClient } from './modelServing.js'
 import { DatabricksError } from '../lib/errors.js'
+import type { DataSource } from '../data/source.js'
+import { DatabricksDataSource } from '../data/databricksSource.js'
+import { CsvDataSource } from '../data/csv/csvSource.js'
 
 /** Executor used when credentials are missing: every query fails with NOT_CONFIGURED. */
 const notConfigured: SqlExecutor = {
@@ -23,6 +26,8 @@ export interface Services {
   wells: WellsRepository
   analytics: AnalyticsRepository
   modelServing: ModelServingClient
+  /** What the routes read from (CSV or Databricks). */
+  data: DataSource
 }
 
 export function createServices(config: AppConfig, overrides: { sql?: SqlExecutor; modelServing?: ModelServingClient } = {}): Services {
@@ -32,5 +37,9 @@ export function createServices(config: AppConfig, overrides: { sql?: SqlExecutor
   const wells = new WellsRepository(sql, catalog, cache)
   const reader = new TableReader(sql, catalog, cache)
   const analytics = new AnalyticsRepository(sql, catalog, cache, reader, wells)
-  return { config, sql, cache, catalog, wells, analytics, modelServing: overrides.modelServing ?? unconfiguredModelServing }
+  const data: DataSource =
+    config.dataSource === 'csv' && !overrides.sql
+      ? new CsvDataSource(config.csvDataDir)
+      : new DatabricksDataSource(config, sql, catalog, wells, analytics)
+  return { config, sql, cache, catalog, wells, analytics, data, modelServing: overrides.modelServing ?? unconfiguredModelServing }
 }

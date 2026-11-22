@@ -1,13 +1,14 @@
 /**
  * Data contract for well features consumed by the frontend.
  *
- * Primary source: `GET /api/wells` (backend → Databricks bushra_well_master +
- * bushra_well_performance). Fallback: `public/data/wells.geojson`, built from
+ * Primary source: `GET /api/wells` (backend → exported CSVs or Databricks:
+ * well master + performance). Fallback: `public/data/wells.geojson`, built from
  * daily_production.parquet by `scripts/build_wells_geojson.py`.
  */
 export type WellType = 'injection' | 'production' | 'unknown'
 export type ProvinceCode = 'AB' | 'SK' | 'BC'
-export type WellSource = 'databricks' | 'static'
+/** `csv` = backend reading the exported CSV files; `databricks` = live tables; `static` = parquet snapshot fallback. */
+export type WellSource = 'databricks' | 'csv' | 'static'
 export type Scalar = string | number | boolean | null
 
 export interface WellRoles {

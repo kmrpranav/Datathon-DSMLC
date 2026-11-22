@@ -1,44 +1,34 @@
 import { Router } from 'express'
 import { publicConfigStatus } from '../config/env.js'
-import { TABLES, type TableKey } from '../repositories/catalog.js'
 import type { Services } from '../services/container.js'
 import type { HealthResponse } from '../types/api.js'
 
 const started = Date.now()
-const VERSION = '0.1.0'
+const VERSION = '0.2.0'
 
 /**
- * GET /api/health          → config presence only (no Databricks call)
- * GET /api/health?deep=1   → also runs `SELECT 1` and checks each table is readable
+ * GET /api/health          → active data source + config presence (cheap)
+ * GET /api/health?deep=1   → also reads every table (Databricks: `SELECT 1` + DESCRIBE; CSV: parses each file)
  */
 export function healthRouter(s: Services) {
   const r = Router()
   r.get('/', async (req, res) => {
+    const deep = req.query.deep === '1'
+    const data = await s.data.health(deep)
+    const databricks: HealthResponse['databricks'] = publicConfigStatus(s.config)
+    if (data.kind === 'databricks') {
+      if (data.connection) databricks.connection = data.connection
+      if (data.tables) databricks.tables = Object.fromEntries(Object.entries(data.tables).map(([k, v]) => [k, { available: v.available }]))
+    }
     const body: HealthResponse = {
-      status: s.config.configured ? 'ok' : 'degraded',
+      status: data.ok ? 'ok' : 'degraded',
       service: 'floodiq-api',
       version: VERSION,
       uptimeSeconds: Math.round((Date.now() - started) / 1000),
       time: new Date().toISOString(),
-      databricks: publicConfigStatus(s.config),
+      dataSource: data,
+      databricks,
       cache: s.cache.stats(),
-    }
-    if (req.query.deep === '1' && s.config.configured) {
-      const t0 = Date.now()
-      try {
-        await s.sql.query('SELECT 1 AS ok', [], { label: 'health.ping', timeoutMs: 60_000 })
-        body.databricks.connection = { ok: true, latencyMs: Date.now() - t0 }
-        const tables: Record<string, { available: boolean }> = {}
-        await Promise.all(
-          (Object.keys(TABLES) as TableKey[]).map(async (k) => {
-            tables[TABLES[k]] = { available: Boolean(await s.catalog.trySchema(k).catch(() => null)) }
-          }),
-        )
-        body.databricks.tables = tables
-      } catch (e) {
-        body.status = 'degraded'
-        body.databricks.connection = { ok: false, error: (e as { code?: string }).code ?? 'ERROR' }
-      }
     }
     res.json(body)
   })

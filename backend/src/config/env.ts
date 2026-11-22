@@ -1,3 +1,5 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 
 /**
@@ -11,6 +13,8 @@ const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   FRONTEND_ORIGIN: z.string().default('http://localhost:5173'),
+  DATA_SOURCE: z.enum(['csv', 'databricks']).default('csv'),
+  CSV_DATA_DIR: z.string().trim().default(''),
   DATABRICKS_HOST: z.string().trim().default(''),
   DATABRICKS_WAREHOUSE_ID: z.string().trim().default(''),
   DATABRICKS_TOKEN: z.string().trim().default(''),
@@ -24,6 +28,10 @@ export interface AppConfig {
   nodeEnv: 'development' | 'test' | 'production'
   port: number
   frontendOrigins: string[]
+  /** Where data is read from: exported CSV files (default) or Databricks. */
+  dataSource: 'csv' | 'databricks'
+  /** Absolute folder holding the exported CSV files (default: the project root). */
+  csvDataDir: string
   databricks: {
     host: string
     warehouseId: string
@@ -33,10 +41,13 @@ export interface AppConfig {
     queryTimeoutMs: number
   }
   cacheTtlMs: number
-  /** Names of required Databricks variables that are missing or still placeholders. */
+  /** Names of required Databricks variables that are missing or still placeholders (only needed when DATA_SOURCE=databricks). */
   missing: string[]
   configured: boolean
 }
+
+/** backend/ — the same depth from src/config and dist/config. */
+const BACKEND_DIR = fileURLToPath(new URL('../..', import.meta.url))
 
 const PLACEHOLDER = /YOUR[-_]|<.*>|changeme/i
 
@@ -71,6 +82,8 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     nodeEnv: e.NODE_ENV,
     port: e.PORT,
     frontendOrigins: e.FRONTEND_ORIGIN.split(',').map((s) => s.trim()).filter(Boolean),
+    dataSource: e.DATA_SOURCE,
+    csvDataDir: e.CSV_DATA_DIR ? path.resolve(BACKEND_DIR, e.CSV_DATA_DIR) : path.resolve(BACKEND_DIR, '..'),
     databricks: {
       host,
       warehouseId: e.DATABRICKS_WAREHOUSE_ID,

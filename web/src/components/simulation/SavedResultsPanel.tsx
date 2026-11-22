@@ -17,7 +17,7 @@ interface SavedResultsPanelProps {
   className?: string
 }
 
-/** Saved conversion ranking + economics scenarios (read from Databricks; no live inference). */
+/** Saved conversion ranking + economics scenarios (saved model outputs; no live inference). */
 export function SavedResultsPanel({ ranking, economics, showOnMap, onToggleMap, onSelectUwi, selectedUwi, className }: SavedResultsPanelProps) {
   const r = ranking.status === 'ready' ? ranking.data : null
   const uwiCol = r?.fields.uwi
@@ -78,7 +78,7 @@ export function SavedResultsPanel({ ranking, economics, showOnMap, onToggleMap, 
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {economics.data.scenarios.length
                 ? economics.data.scenarios.map((s) => <span key={s} className="rounded-md border border-line bg-[#FBFAF7] px-1.5 py-0.5 text-[11.5px] text-ink">{s}</span>)
-                : <span className="text-[12.5px] text-muted">No scenario column found.</span>}
+                : <span className="text-[12.5px] text-muted">No scenario column in this table; each row is one saved estimate.</span>}
             </div>
             <SourceTag className="mt-1.5">{economics.data.table} · {economics.data.page.total.toLocaleString()} rows</SourceTag>
           </>

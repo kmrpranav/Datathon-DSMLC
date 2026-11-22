@@ -1,4 +1,4 @@
-/** Mirrors backend/src/types/api.ts. Column-shaped data keeps real Databricks column names. */
+/** Mirrors backend/src/types/api.ts. Column-shaped data keeps the real column names. */
 export type Scalar = string | number | boolean | null
 export type DataRow = Record<string, unknown>
 export interface ColumnInfo { name: string; type: string }
@@ -6,6 +6,7 @@ export type FieldMap = Partial<Record<string, string>>
 
 export interface HealthResponse {
   status: 'ok' | 'degraded'
+  dataSource: { kind: 'csv' | 'databricks'; ok: boolean; tables?: Record<string, { available: boolean; source?: string; rows?: number; error?: string }> }
   databricks: { configured: boolean; missing: string[]; catalog: string; schema: string }
 }
 
@@ -34,6 +35,9 @@ export type PerformanceResponse = TableRowsResponse & { summary: PerformanceSumm
 export type EconomicsResponse = TableRowsResponse & { scenarios: string[] }
 
 export interface OverviewResponse {
+  source?: 'csv' | 'databricks'
+  /** Catalog tables the active source doesn't have (shown as unavailable, never synthesized). */
+  unavailable?: string[]
   generatedAt: string
   cached: boolean
   wells: null | {
@@ -55,6 +59,9 @@ export interface OverviewResponse {
 
 export interface WellDetailResponse {
   uwi: string
+  source?: 'csv' | 'databricks'
+  tables?: string[]
+  unavailable?: string[]
   attributes: DataRow
   performance: { available: boolean; classColumn: string | null; latest: DataRow | null; records: DataRow[]; recordCount: number }
   pairs: { available: boolean; asInjector: DataRow[]; asProducer: DataRow[]; fields: FieldMap; notice: string }
@@ -64,3 +71,77 @@ export interface WellDetailResponse {
 }
 
 export interface SimulationStatus { liveInference: boolean; message: string }
+
+/** GET /api/analytics — one well-level dataset the Analytics page filters client-side. */
+export interface MetricInfo { column: string; file: string; label: string; unit: string; kind: string; note: string }
+export type MetricKey =
+  | 'totalOilM3' | 'totalInjM3' | 'oilRate13w' | 'waterCut4w' | 'uptime4w' | 'activeInjectorsNearby' | 'areaPercentile'
+  | 'netOil4w' | 'extraOil4w' | 'ownOilLost4w' | 'water4w' | 'oilPerM3Water'
+  | 'expectedProfitCad' | 'p10ProfitCad' | 'p90ProfitCad' | 'chanceOfProfit' | 'breakevenPriceBbl'
+
+export interface AnalyticsWell {
+  uwi: string
+  wellName: string | null
+  area: string | null
+  hasCoordinates: boolean
+  hasProduced: boolean | null
+  hasInjected: boolean | null
+  dualRole: boolean
+  currentRole: 'injection' | 'production' | 'unknown'
+  totalOilM3: number | null
+  totalInjM3: number | null
+  onProductionDate: string | null
+  firstInjectionDate: string | null
+  performance: null | {
+    class: string | null
+    week: string | null
+    oilRate13w: number | null
+    waterCut4w: number | null
+    uptime4w: number | null
+    activeInjectorsNearby: number | null
+    areaPercentile: number | null
+  }
+  conversionRank: number | null
+}
+
+export interface AnalyticsCandidate {
+  uwi: string
+  rank: number | null
+  neighbours: number | null
+  extraOil4w: number | null
+  water4w: number | null
+  ownOilLost4w: number | null
+  netOil4w: number | null
+  oilPerM3Water: number | null
+  economics: null | {
+    rank: number | null
+    expectedProfitCad: number | null
+    p10ProfitCad: number | null
+    p90ProfitCad: number | null
+    chanceOfProfit: number | null
+    breakevenPriceBbl: number | null
+  }
+}
+
+export interface AnalyticsResponse {
+  source: 'csv' | 'databricks'
+  generatedAt: string
+  files: string[]
+  snapshotWeek: string | null
+  metrics: Record<MetricKey, MetricInfo>
+  wells: AnalyticsWell[]
+  candidates: AnalyticsCandidate[]
+  quality: {
+    masterRows: number
+    uniqueWells: number
+    duplicateWells: number
+    performanceDuplicateWells: number
+    withoutCoordinates: number
+    withoutPerformance: number
+    candidatesNotInMaster: number
+    candidatesWithEconomics: number
+    missingColumns: string[]
+  }
+  unavailable: string[]
+  notices: { model: string; economics: string; ranking: string; proximity: string }
+}

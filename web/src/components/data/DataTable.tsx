@@ -18,7 +18,7 @@ interface DataTableProps {
   minWidth?: number
 }
 
-/** Generic table for Databricks result rows. Headers keep the real column name in a tooltip. */
+/** Generic table for API result rows. Headers keep the real column name in a tooltip. */
 export function DataTable({ columns, rows, visible, sort, onSort, onRowClick, highlight, className, minWidth = 560 }: DataTableProps) {
   const cols = visible ? (visible.map((v) => columns.find((c) => c.name === v)).filter(Boolean) as ColumnInfo[]) : columns
   return (

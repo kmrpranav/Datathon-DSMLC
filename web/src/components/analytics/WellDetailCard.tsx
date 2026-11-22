@@ -14,12 +14,12 @@ const toColumns = (rows: DataRow[]) => Object.keys(rows[0] ?? {}).map((name) => 
 /** Everything the Catalog tables hold for one well (GET /api/wells/:uwi). */
 export function WellDetailCard({ uwi }: { uwi: string }) {
   const state = useApi((s) => floodiqApi.well(uwi, s), `well:${uwi}`)
-  if (state.status === 'loading') return <Card><LoadingState label="Loading well from Databricks…" /></Card>
+  if (state.status === 'loading') return <Card><LoadingState label="Loading well…" /></Card>
   if (state.status === 'error') {
     return (
       <Card>
         {state.error.status === 404 ? (
-          <p className="p-6 text-[13px] text-muted">UWI <span className="font-mono">{uwi}</span> is not in bushra_well_master.</p>
+          <p className="p-6 text-[13px] text-muted">UWI <span className="font-mono">{uwi}</span> is not in the well master data.</p>
         ) : (
           <ApiErrorState compact error={state.error} onRetry={state.retry} />
         )}
@@ -83,12 +83,12 @@ export function WellDetailCard({ uwi }: { uwi: string }) {
         {pairRows.length ? (
           <div className="overflow-hidden rounded-xl border border-line"><DataTable columns={toColumns(pairRows)} rows={pairRows.slice(0, 20)} /></div>
         ) : (
-          <p className="text-[12.5px] text-muted">{d.pairs.available ? 'No saved pairs include this well.' : 'Pairs table not available.'}</p>
+          <p className="text-[12.5px] text-muted">{d.pairs.available ? 'No saved pairs include this well.' : 'The pairs table is not included in the current data source.'}</p>
         )}
       </section>
 
       <Notice>{d.pairs.notice} {d.conversion.notice}</Notice>
-      <SourceTag>bushra_well_master · bushra_well_performance · pairs · ranking · economics</SourceTag>
+      <SourceTag>{d.tables?.length ? d.tables.join(' · ') : 'well master · performance · pairs · ranking · economics'}</SourceTag>
     </Card>
   )
 }

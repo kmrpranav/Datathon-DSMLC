@@ -19,7 +19,7 @@ const query = z.object({
 export function pairsRouter(s: Services) {
   const r = Router()
   r.get('/', async (req, res) => {
-    res.json(await s.analytics.pairs(query.parse(req.query)))
+    res.json(await s.data.pairs(query.parse(req.query)))
   })
   return r
 }

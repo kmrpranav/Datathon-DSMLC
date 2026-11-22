@@ -5,9 +5,11 @@
 import type { SqlExecutor } from '../services/databricks.js'
 import type { TtlCache } from '../services/cache.js'
 import { Catalog, quoteIdent as q, requireField, type TableKey } from './catalog.js'
-import { TableReader, type TableQuery } from './tableQuery.js'
+import type { TableReader } from './tableQuery.js'
+import { economicsSpec, pairsSpec, performanceSpec, rankingSpec } from '../data/querySpecs.js'
+import type { EconomicsQuery, PairsQuery, PerformanceQuery, RankingQuery } from '../data/source.js'
 import { DatabricksError } from '../lib/errors.js'
-import { classOrder, MODEL_NOTICE, PAIRS_NOTICE, type WellsRepository } from './wells.js'
+import { classOrder, MODEL_NOTICE, PAIRS_NOTICE, summarizeWells, type WellsRepository } from './wells.js'
 
 export interface PageInput {
   limit: number
@@ -59,75 +61,20 @@ export class AnalyticsRepository {
     return { ...value, cached }
   }
 
-  performanceRows(f: { class?: string; area?: string; search?: string } & PageInput) {
-    return this.reader.read('wellPerformance', {
-      filters: [
-        { field: 'performanceClass', value: f.class, ci: true },
-        { field: 'operatingArea', value: f.area, ci: true },
-      ],
-      search: { value: f.search, fields: ['uwi', 'wellName'] },
-      sort: f.sort,
-      dir: f.dir,
-      defaultSort: [{ field: 'uwi', dir: 'asc' }],
-      limit: f.limit,
-      offset: f.offset,
-    })
+  performanceRows(f: PerformanceQuery) {
+    return this.reader.read('wellPerformance', performanceSpec(f))
   }
 
-  pairs(f: { uwi?: string; injector?: string; producer?: string; area?: string; maxDistance?: number } & PageInput) {
-    const query: TableQuery = {
-      filters: [
-        { field: 'injectorUwi', value: f.injector },
-        { field: 'producerUwi', value: f.producer },
-        { field: 'operatingArea', value: f.area, ci: true },
-        { field: 'distance', value: f.maxDistance, op: 'lte' },
-      ],
-      search: f.uwi ? { value: f.uwi, fields: ['injectorUwi', 'producerUwi'] } : undefined,
-      sort: f.sort,
-      dir: f.dir,
-      defaultSort: [{ field: 'distance', dir: 'asc' }, { field: 'injectorUwi', dir: 'asc' }],
-      limit: f.limit,
-      offset: f.offset,
-    }
-    return this.reader.read('pairs', query, PAIRS_NOTICE)
+  pairs(f: PairsQuery) {
+    return this.reader.read('pairs', pairsSpec(f), PAIRS_NOTICE)
   }
 
-  conversionRanking(f: { area?: string; search?: string; minScore?: number } & PageInput) {
-    return this.reader.read(
-      'conversionRanking',
-      {
-        filters: [
-          { field: 'operatingArea', value: f.area, ci: true },
-          { field: 'score', value: f.minScore, op: 'gte' },
-        ],
-        search: { value: f.search, fields: ['uwi', 'wellName'] },
-        sort: f.sort,
-        dir: f.dir,
-        defaultSort: [{ field: 'rank', dir: 'asc' }, { field: 'score', dir: 'desc' }],
-        limit: f.limit,
-        offset: f.offset,
-      },
-      MODEL_NOTICE,
-    )
+  conversionRanking(f: RankingQuery) {
+    return this.reader.read('conversionRanking', rankingSpec(f), MODEL_NOTICE)
   }
 
-  async conversionEconomics(f: { scenario?: string; uwi?: string; search?: string } & PageInput) {
-    const rows = await this.reader.read(
-      'conversionEconomics',
-      {
-        filters: [
-          { field: 'scenario', value: f.scenario, ci: true },
-          { field: 'uwi', value: f.uwi },
-        ],
-        search: { value: f.search, fields: ['uwi', 'wellName'] },
-        sort: f.sort,
-        dir: f.dir,
-        defaultSort: [{ field: 'rank', dir: 'asc' }, { field: 'score', dir: 'desc' }, { field: 'uwi', dir: 'asc' }],
-        limit: f.limit,
-        offset: f.offset,
-      },
-      `${MODEL_NOTICE} Scenario assumptions are shown exactly as saved in the table.`,
-    )
+  async conversionEconomics(f: EconomicsQuery) {
+    const rows = await this.reader.read('conversionEconomics', economicsSpec(f), `${MODEL_NOTICE} Scenario assumptions are shown exactly as saved in the table.`)
     const scenarios = await this.distinct('conversionEconomics', 'scenario')
     return { ...rows, scenarios }
   }
@@ -194,32 +141,10 @@ export class AnalyticsRepository {
         safe('economics scenarios', () => this.distinct('conversionEconomics', 'scenario')),
       ])
 
-      let wells = null
-      if (wellsData) {
-        const fs = wellsData.data.features
-        const byRole = { injection: 0, production: 0, unknown: 0 }
-        let dual = 0
-        const areas = new Map<string, number>()
-        const provinces = new Map<string, number>()
-        for (const f of fs) {
-          const p = f.properties
-          byRole[p.wellType]++
-          if (p.roles.dualRole) dual++
-          if (p.operatingArea) areas.set(p.operatingArea, (areas.get(p.operatingArea) ?? 0) + 1)
-          if (p.province) provinces.set(p.province, (provinces.get(p.province) ?? 0) + 1)
-        }
-        const sorted = (m: Map<string, number>) => [...m].map(([name, wells]) => ({ name, wells })).sort((a, b) => b.wells - a.wells)
-        wells = {
-          mapped: fs.length,
-          excludedInvalidCoordinates: wellsData.data.metadata.excluded.invalidCoordinates,
-          byRole,
-          dualRole: dual,
-          byOperatingArea: sorted(areas),
-          byProvince: sorted(provinces),
-        }
-      }
+      const wells = wellsData ? summarizeWells(wellsData.data) : null
 
       return {
+        source: 'databricks' as const,
         generatedAt: new Date().toISOString(),
         wells: wells && master ? { totalUnique: master.distinctWells ?? wells.mapped, masterRows: master.rows, ...wells } : wells,
         performance,

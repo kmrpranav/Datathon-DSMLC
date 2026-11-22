@@ -6,6 +6,7 @@
 import type { RoleClassification, WellRole } from '../lib/classify.js'
 import type { ColumnInfo, LogicalField } from '../repositories/catalog.js'
 
+export type DataSourceKind = 'databricks' | 'csv'
 export type Scalar = string | number | boolean | null
 export type DataRow = Record<string, unknown>
 
@@ -19,6 +20,8 @@ export interface HealthResponse {
   version: string
   uptimeSeconds: number
   time: string
+  /** The active source (`DATA_SOURCE`). */
+  dataSource: import('../data/source.js').DataSourceHealth
   databricks: {
     configured: boolean
     missing: string[]
@@ -57,7 +60,7 @@ export interface WellFeature {
 }
 
 export interface WellsMetadata {
-  source: 'databricks'
+  source: DataSourceKind
   tables: string[]
   generatedAt: string
   cached: boolean

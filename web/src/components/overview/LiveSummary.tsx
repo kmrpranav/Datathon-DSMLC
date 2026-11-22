@@ -10,7 +10,7 @@ import type { OverviewResponse } from '../../api/types'
 import { colors, performanceColor } from '../../config/theme'
 import { formatNumber } from '../../lib/format'
 
-/** Overview KPIs aggregated from the Databricks Catalog tables via GET /api/overview. */
+/** Overview KPIs aggregated by the backend (CSV export or Databricks) via GET /api/overview. */
 export function LiveSummary() {
   const state = useApi((signal) => floodiqApi.overview(signal), 'overview')
   const navigate = useNavigate()
@@ -75,7 +75,7 @@ export function LiveSummary() {
       </div>
 
       <Notice>
-        Rankings and economics are model-generated estimates saved by the team in Databricks — not live predictions and not verified realized savings or profits.
+        Rankings and economics are model-generated estimates saved by the team — not live predictions and not verified realized savings or profits.
       </Notice>
       {d.warnings.length > 0 && (
         <Notice tone="neutral">Some sections are unavailable: {d.warnings.join(' · ')}</Notice>
@@ -153,11 +153,11 @@ const Stat = ({ label, value, suffix }: { label: string; value: number | null | 
     <dd className="font-medium tabular-nums">{formatNumber(value ?? null, suffix || undefined) ?? '—'}</dd>
   </div>
 )
-const Unavailable = () => <p className="text-[12.5px] text-muted">Not available in the connected tables.</p>
+const Unavailable = () => <p className="text-[12.5px] text-muted">Not included in the current data source.</p>
 
 function SummarySkeleton() {
   return (
-    <div className="flex flex-col gap-4" role="status" aria-label="Loading Databricks summary">
+    <div className="flex flex-col gap-4" role="status" aria-label="Loading field summary">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => <Card key={i} className="h-[112px] animate-pulse bg-[#FBFAF7]" />)}
       </div>

@@ -26,7 +26,7 @@ interface ResultsTableCardProps<T extends TableRowsResponse> {
   footer?: (data: T) => ReactNode
 }
 
-/** Card wrapping a paginated, server-sorted Databricks table with loading / error / empty states. */
+/** Card wrapping a paginated, server-sorted table with loading / error / empty states. */
 export function ResultsTableCard<T extends TableRowsResponse>({ title, description, icon: Icon, load, filterKey, pageSize = 10, toolbar, pickColumns, onRowClick, highlight, footer }: ResultsTableCardProps<T>) {
   const [page, setPage] = useState(0)
   const [sort, setSort] = useState<{ column?: string; dir?: 'asc' | 'desc' }>({})
@@ -52,7 +52,7 @@ export function ResultsTableCard<T extends TableRowsResponse>({ title, descripti
         {toolbar}
       </div>
       <div className="flex flex-1 flex-col gap-3 p-5 pt-4">
-        {state.status === 'loading' && <LoadingState label="Querying Databricks…" />}
+        {state.status === 'loading' && <LoadingState label="Loading…" />}
         {state.status === 'error' && <ApiErrorState compact error={state.error} onRetry={state.retry} />}
         {d && (d.rows.length === 0 ? (
           <EmptyState className="p-6" icon={<SearchX className="size-5" />} title="No rows" description="No records match the current filters." />

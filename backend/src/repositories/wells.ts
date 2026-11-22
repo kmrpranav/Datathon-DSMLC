@@ -95,109 +95,26 @@ ${joinPerf ? `LEFT JOIN p ON CAST(m.${q(mUwi)} AS STRING) = CAST(p.${q(pUwi!)} A
 WHERE m.__rn = 1`
 
     const res = await this.sql.query(sql, [], { label: 'wells.dataset' })
-
-    const mf = master.fields
-    const pf = perf?.fields ?? {}
-    // Columns surfaced as `metrics`: performance columns that aren't identity fields.
-    const identity = new Set([pf.uwi, pf.wellName, pf.operatingArea, pf.performanceClass].filter(Boolean) as string[])
-    const metricColumns = joinPerf ? perf!.columns.filter((c) => !identity.has(c.name)) : []
-
-    let invalid = 0
-    let mDup = 0
-    let pDup = 0
-    const classes = new Set<string>()
-    const areas = new Set<string>()
-    const features: WellFeature[] = []
-
-    for (const r of res.rows) {
+    const rows: JoinedWellRow[] = res.rows.map((r) => {
       const m: DataRow = {}
       master.columns.forEach((c, i) => (m[c.name] = r[`m_${i}`]))
-      const p: DataRow | null = joinPerf ? {} : null
-      if (p) perf!.columns.forEach((c, i) => (p[c.name] = r[`p_${i}`]))
-      const hasPerf = Boolean(p && p[pUwi!] !== null && p[pUwi!] !== undefined)
-      if (num(r.__mn)! > 1) mDup++
-      if (hasPerf && num(r.__pn)! > 1) pDup++
-
-      const lat = num(m[mf.latitude!])
-      const lon = num(m[mf.longitude!])
-      if (!validCoordinate(lat, lon)) {
-        invalid++
-        continue
+      let p: DataRow | null = null
+      if (joinPerf) {
+        const pr: DataRow = {}
+        perf!.columns.forEach((c, i) => (pr[c.name] = r[`p_${i}`]))
+        if (pr[pUwi!] !== null && pr[pUwi!] !== undefined) p = pr
       }
-      const pick = (field: keyof typeof mf) => {
-        const mc = mf[field]
-        const mv = mc ? m[mc] : null
-        if (mv !== null && mv !== undefined && mv !== '') return mv
-        const pc = hasPerf ? pf[field] : undefined
-        return pc ? p![pc] : null
-      }
-      const roles = classifyWell({
-        flowDirection: pick('flowDirection'),
-        status: pick('status'),
-        wellType: pick('wellType'),
-        everProduced: pick('everProduced'),
-        everInjected: pick('everInjected'),
-        oilTotal: pick('oilTotal'),
-        injectionTotal: pick('injectionTotal'),
-      })
-      const performanceClass = hasPerf && pf.performanceClass ? str(p![pf.performanceClass]) : null
-      const operatingArea = str(pick('operatingArea'))
-      if (performanceClass) classes.add(performanceClass)
-      if (operatingArea) areas.add(operatingArea)
-      const metrics: Record<string, Scalar> = {}
-      if (hasPerf) for (const c of metricColumns) metrics[c.name] = scalar(p![c.name])
-
-      features.push({
-        type: 'Feature',
-        id: 0,
-        geometry: { type: 'Point', coordinates: [lon!, lat] }, // GeoJSON order: [lng, lat]
-        properties: {
-          uwi: String(m[mUwi]),
-          formattedUwi: str(mf.formattedUwi ? m[mf.formattedUwi] : null),
-          wellName: str(pick('wellName')),
-          province: str(mf.province ? m[mf.province] : null),
-          operatingArea,
-          wellType: roles.currentRole,
-          status: str(pick('status')),
-          flowDirection: str(pick('flowDirection')),
-          roles,
-          performanceClass,
-          metrics,
-          performanceRecordCount: hasPerf ? (num(r.__pn) ?? 1) : 0,
-        },
-      })
-    }
-    features.sort((a, b) => a.properties.uwi.localeCompare(b.properties.uwi))
-    features.forEach((f, i) => (f.id = i + 1))
-
-    if (!mf.status && !mf.flowDirection && !mf.wellType && !pf.status && !pf.flowDirection) {
-      warnings.push('No status / flow-direction / well-type column found; wells are shown as unclassified.')
-    }
-    if (!mf.everInjected && !mf.injectionTotal && !pf.everInjected && !pf.injectionTotal) {
-      warnings.push('No historical injection evidence column found; dual-role history is based on current role only.')
-    }
-    if (invalid) warnings.push(`${invalid} well${invalid === 1 ? '' : 's'} excluded from the map for missing or invalid coordinates.`)
-
-    return {
-      features,
-      metadata: {
-        source: 'databricks',
-        tables: [master.table, ...(joinPerf ? [perf!.table] : [])],
-        generatedAt: new Date().toISOString(),
-        total: features.length,
-        excluded: { invalidCoordinates: invalid },
-        duplicates: {
-          masterWellsWithMultipleRows: mDup,
-          performanceWellsWithMultipleRows: pDup,
-          dedupeOrder: { master: mCte.orderLabel, performance: pCte?.orderLabel ?? 'not joined' },
-        },
-        fields: { master: mf, performance: joinPerf ? pf : null },
-        metricColumns,
-        performanceClasses: [...classes].sort(classOrder),
-        operatingAreas: [...areas].sort(),
-        warnings,
-      },
-    }
+      return { m, p, masterRows: num(r.__mn) ?? 1, perfRows: p ? (num(r.__pn) ?? 1) : 0 }
+    })
+    return buildWellsDataset({
+      source: 'databricks',
+      tables: [master.table, ...(joinPerf ? [perf!.table] : [])],
+      master,
+      perf: joinPerf ? perf : null,
+      rows,
+      dedupeOrder: { master: mCte.orderLabel, performance: pCte?.orderLabel ?? 'not joined' },
+      warnings,
+    })
   }
 
   /** Everything known about one well, via parameterized queries. */
@@ -301,4 +218,153 @@ export function filterFeatures(features: WellFeature[], f: WellFilterInput): Wel
     }
     return true
   })
+}
+
+/** One well after de-duplication: its master row, its kept performance row, and how many raw rows each had. */
+export interface JoinedWellRow {
+  m: DataRow
+  p: DataRow | null
+  masterRows: number
+  perfRows: number
+}
+
+/**
+ * Turns de-duplicated master + performance rows into map features. Shared by
+ * the Databricks and CSV data sources so both classify wells identically.
+ */
+export function buildWellsDataset(o: {
+  source: WellsMetadata['source']
+  tables: string[]
+  master: TableSchema
+  perf: TableSchema | null
+  rows: JoinedWellRow[]
+  dedupeOrder: { master: string; performance: string }
+  warnings: string[]
+}): WellsDataset {
+  const { master, perf } = o
+  const mUwi = requireField(master, 'uwi')
+  const mf = master.fields
+  const pf = perf?.fields ?? {}
+  const warnings = [...o.warnings]
+  // Columns surfaced as `metrics`: performance columns that aren't identity fields.
+  const identity = new Set([pf.uwi, pf.wellName, pf.operatingArea, pf.performanceClass].filter(Boolean) as string[])
+  const metricColumns = perf ? perf.columns.filter((c) => !identity.has(c.name)) : []
+
+  let invalid = 0
+  let mDup = 0
+  let pDup = 0
+  const classes = new Set<string>()
+  const areas = new Set<string>()
+  const features: WellFeature[] = []
+
+  for (const { m, p, masterRows, perfRows } of o.rows) {
+    if (masterRows > 1) mDup++
+    if (p && perfRows > 1) pDup++
+    const lat = num(mf.latitude ? m[mf.latitude] : null)
+    const lon = num(mf.longitude ? m[mf.longitude] : null)
+    if (!validCoordinate(lat, lon)) {
+      invalid++
+      continue
+    }
+    const pick = (field: keyof typeof mf) => {
+      const mc = mf[field]
+      const mv = mc ? m[mc] : null
+      if (mv !== null && mv !== undefined && mv !== '') return mv
+      const pc = p ? pf[field] : undefined
+      return pc ? p![pc] : null
+    }
+    const roles = classifyWell({
+      flowDirection: pick('flowDirection'),
+      status: pick('status'),
+      wellType: pick('wellType'),
+      everProduced: pick('everProduced'),
+      everInjected: pick('everInjected'),
+      oilTotal: pick('oilTotal'),
+      injectionTotal: pick('injectionTotal'),
+      productionStart: pick('productionStartDate'),
+      injectionStart: pick('injectionStartDate'),
+    })
+    const performanceClass = p && pf.performanceClass ? str(p[pf.performanceClass]) : null
+    const operatingArea = str(pick('operatingArea'))
+    if (performanceClass) classes.add(performanceClass)
+    if (operatingArea) areas.add(operatingArea)
+    const metrics: Record<string, Scalar> = {}
+    if (p) for (const c of metricColumns) metrics[c.name] = scalar(p[c.name])
+
+    features.push({
+      type: 'Feature',
+      id: 0,
+      geometry: { type: 'Point', coordinates: [lon!, lat] }, // GeoJSON order: [lng, lat]
+      properties: {
+        uwi: String(m[mUwi]),
+        formattedUwi: str(mf.formattedUwi ? m[mf.formattedUwi] : null),
+        wellName: str(pick('wellName')),
+        province: str(mf.province ? m[mf.province] : null),
+        operatingArea,
+        wellType: roles.currentRole,
+        status: str(pick('status')),
+        flowDirection: str(pick('flowDirection')),
+        roles,
+        performanceClass,
+        metrics,
+        performanceRecordCount: p ? perfRows : 0,
+      },
+    })
+  }
+  features.sort((a, b) => a.properties.uwi.localeCompare(b.properties.uwi))
+  features.forEach((f, i) => (f.id = i + 1))
+
+  const noCurrent = !mf.status && !mf.flowDirection && !mf.wellType && !pf.status && !pf.flowDirection
+  const hasFlags = Boolean(mf.everProduced || mf.everInjected || mf.oilTotal || mf.injectionTotal)
+  if (noCurrent && hasFlags) {
+    warnings.push(
+      'No current status / flow-direction column exists, so the well type comes from the production and injection history flags. Wells with both histories use whichever role started most recently.',
+    )
+  } else if (noCurrent) {
+    warnings.push('No status / flow-direction / well-type column found; wells are shown as unclassified.')
+  }
+  if (!mf.everInjected && !mf.injectionTotal && !pf.everInjected && !pf.injectionTotal) {
+    warnings.push('No historical injection evidence column found; dual-role history is based on current role only.')
+  }
+  if (invalid) warnings.push(`${invalid} well${invalid === 1 ? '' : 's'} excluded from the map for missing or invalid coordinates.`)
+
+  return {
+    features,
+    metadata: {
+      source: o.source,
+      tables: o.tables,
+      generatedAt: new Date().toISOString(),
+      total: features.length,
+      excluded: { invalidCoordinates: invalid },
+      duplicates: { masterWellsWithMultipleRows: mDup, performanceWellsWithMultipleRows: pDup, dedupeOrder: o.dedupeOrder },
+      fields: { master: mf, performance: perf ? pf : null },
+      metricColumns,
+      performanceClasses: [...classes].sort(classOrder),
+      operatingAreas: [...areas].sort(),
+      warnings,
+    },
+  }
+}
+
+/** Role / area counts for the Overview page, from the same feature set the map uses. */
+export function summarizeWells(d: WellsDataset) {
+  const byRole = { injection: 0, production: 0, unknown: 0 }
+  let dual = 0
+  const areas = new Map<string, number>()
+  const provinces = new Map<string, number>()
+  for (const { properties: p } of d.features) {
+    byRole[p.wellType]++
+    if (p.roles.dualRole) dual++
+    if (p.operatingArea) areas.set(p.operatingArea, (areas.get(p.operatingArea) ?? 0) + 1)
+    if (p.province) provinces.set(p.province, (provinces.get(p.province) ?? 0) + 1)
+  }
+  const sorted = (m: Map<string, number>) => [...m].map(([name, wells]) => ({ name, wells })).sort((a, b) => b.wells - a.wells)
+  return {
+    mapped: d.features.length,
+    excludedInvalidCoordinates: d.metadata.excluded.invalidCoordinates,
+    byRole,
+    dualRole: dual,
+    byOperatingArea: sorted(areas),
+    byProvince: sorted(provinces),
+  }
 }

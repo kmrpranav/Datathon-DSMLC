@@ -15,10 +15,10 @@ const economicsQuery = z.object({ scenario: optText(80), uwi: uwiSchema.optional
 export function conversionsRouter(s: Services) {
   const r = Router()
   r.get('/conversion-ranking', async (req, res) => {
-    res.json(await s.analytics.conversionRanking(rankingQuery.parse(req.query)))
+    res.json(await s.data.conversionRanking(rankingQuery.parse(req.query)))
   })
   r.get('/conversion-economics', async (req, res) => {
-    res.json(await s.analytics.conversionEconomics(economicsQuery.parse(req.query)))
+    res.json(await s.data.conversionEconomics(economicsQuery.parse(req.query)))
   })
   return r
 }

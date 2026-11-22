@@ -12,7 +12,7 @@ export class ApiError extends Error {
     this.code = code
     this.details = details
   }
-  /** Backend unreachable or Databricks not configured — callers may fall back. */
+  /** Backend unreachable, a data file missing, or Databricks not configured — callers may fall back. */
   get unavailable() {
     return this.status === 0 || this.status === 503 || this.code === 'DATABRICKS_NOT_CONFIGURED'
   }
@@ -20,7 +20,7 @@ export class ApiError extends Error {
 
 type Params = Record<string, string | number | undefined | null>
 
-/** GET helper. All Databricks access goes through the backend — no credentials in the browser. */
+/** GET helper. All data access goes through the backend — no credentials in the browser. */
 export async function apiGet<T>(path: string, params: Params = {}, signal?: AbortSignal): Promise<T> {
   const qs = new URLSearchParams()
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') qs.set(k, String(v))

@@ -7,6 +7,21 @@ import type { ApiError } from '../../api/client'
 
 /** Error state for an API-backed section, with retry. Distinguishes "backend not connected" from real failures. */
 export function ApiErrorState({ error, onRetry, className, compact }: { error: ApiError; onRetry: () => void; className?: string; compact?: boolean }) {
+  // A table the active data source simply doesn't have (e.g. not in the CSV export): nothing to retry.
+  if (error.code === 'DATASET_NOT_AVAILABLE') {
+    return <EmptyState className={clsx(compact && 'p-6', className)} icon={<Database className="size-5" />} title="Not included in the current data" description={error.message} />
+  }
+  if (error.code === 'DATA_FILE_MISSING') {
+    return (
+      <EmptyState
+        className={clsx(compact && 'p-6', className)}
+        icon={<CloudOff className="size-5" />}
+        title="Data file missing"
+        description={error.message}
+        action={<Button variant="secondary" size="sm" icon={<RefreshCw className="size-3.5" />} onClick={onRetry}>Try again</Button>}
+      />
+    )
+  }
   const offline = error.unavailable
   return (
     <EmptyState

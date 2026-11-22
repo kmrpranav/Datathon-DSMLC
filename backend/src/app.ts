@@ -12,6 +12,7 @@ import { conversionsRouter } from './routes/conversions.js'
 import { overviewRouter } from './routes/overview.js'
 import { metaRouter } from './routes/meta.js'
 import { simulationRouter } from './routes/simulation.js'
+import { analyticsRouter } from './routes/analytics.js'
 
 export function createApp(s: Services, opts: { logRequests?: boolean; rateLimitPerMinute?: number } = {}) {
   const app = express()
@@ -44,6 +45,7 @@ export function createApp(s: Services, opts: { logRequests?: boolean; rateLimitP
   app.use('/api/injector-producer-pairs', pairsRouter(s))
   app.use('/api', conversionsRouter(s))
   app.use('/api/overview', overviewRouter(s))
+  app.use('/api/analytics', analyticsRouter(s))
   app.use('/api/meta', metaRouter(s))
   app.use('/api/simulation', simulationRouter(s))
 

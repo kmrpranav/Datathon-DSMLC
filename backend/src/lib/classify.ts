@@ -6,6 +6,10 @@
  *   well-type column ("inject…" → injection, "produc…" → production).
  * - Historical flags: explicit boolean columns, else cumulative totals > 0,
  *   else the current role. `null` means "no evidence either way".
+ * - If no current-status column exists (e.g. the CSV export), `currentRole`
+ *   falls back to the historical flags: a single role → that role; both roles →
+ *   whichever role *started* most recently (injection start vs production start),
+ *   only when both start dates are present. Otherwise it stays `unknown`.
  * - `dualRole`: the well has evidence of both producing and injecting, so the
  *   categories are not treated as mutually exclusive.
  */
@@ -19,12 +23,14 @@ export interface RoleEvidence {
   everInjected?: unknown
   oilTotal?: unknown
   injectionTotal?: unknown
+  productionStart?: unknown
+  injectionStart?: unknown
 }
 
 export interface RoleClassification {
   currentRole: WellRole
   /** Which column decided `currentRole`. */
-  currentRoleSource: 'flowDirection' | 'status' | 'wellType' | null
+  currentRoleSource: 'flowDirection' | 'status' | 'wellType' | 'historyFlags' | 'latestRoleStart' | null
   hasProducedHistorically: boolean | null
   hasInjectedHistorically: boolean | null
   dualRole: boolean
@@ -54,6 +60,12 @@ function positive(v: unknown): boolean | null {
   return Number.isFinite(n) ? n > 0 : null
 }
 
+function dateValue(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null
+  const t = Date.parse(String(v))
+  return Number.isFinite(t) ? t : null
+}
+
 export function classifyWell(e: RoleEvidence): RoleClassification {
   let currentRole: WellRole = 'unknown'
   let currentRoleSource: RoleClassification['currentRoleSource'] = null
@@ -67,6 +79,15 @@ export function classifyWell(e: RoleEvidence): RoleClassification {
   }
   const produced = truthy(e.everProduced) ?? positive(e.oilTotal)
   const injected = truthy(e.everInjected) ?? positive(e.injectionTotal)
+  if (currentRole === 'unknown') {
+    if (produced === true && injected !== true) [currentRole, currentRoleSource] = ['production', 'historyFlags']
+    else if (injected === true && produced !== true) [currentRole, currentRoleSource] = ['injection', 'historyFlags']
+    else if (produced === true && injected === true) {
+      const ps = dateValue(e.productionStart)
+      const is = dateValue(e.injectionStart)
+      if (ps !== null && is !== null && ps !== is) [currentRole, currentRoleSource] = [is > ps ? 'injection' : 'production', 'latestRoleStart']
+    }
+  }
   const hasProducedHistorically = produced === true || currentRole === 'production' ? true : produced
   const hasInjectedHistorically = injected === true || currentRole === 'injection' ? true : injected
   return {

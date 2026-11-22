@@ -136,7 +136,7 @@ export function WellInfoPanel({ well, onClose, onViewDetails, className }: WellI
                 ))}
               </dl>
             ) : (
-              <p className="pb-4 text-[12.5px] text-muted">No performance record for this well in bushra_well_performance.</p>
+              <p className="pb-4 text-[12.5px] text-muted">No performance record for this well.</p>
             )}
           </>
         )}

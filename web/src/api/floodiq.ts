@@ -1,6 +1,6 @@
 /** Typed endpoints of the FloodIQ backend (see backend/README section in the root README). */
 import { apiGet } from './client'
-import type { EconomicsResponse, HealthResponse, OverviewResponse, PerformanceResponse, SimulationStatus, TableRowsResponse, WellDetailResponse } from './types'
+import type { AnalyticsResponse, EconomicsResponse, HealthResponse, OverviewResponse, PerformanceResponse, SimulationStatus, TableRowsResponse, WellDetailResponse } from './types'
 import type { WellFeatureCollection } from '../types/well'
 
 export interface PageParams { limit?: number; offset?: number; sort?: string; dir?: 'asc' | 'desc' }
@@ -18,5 +18,6 @@ export const floodiqApi = {
     apiGet<TableRowsResponse>('/api/conversion-ranking', { ...p }, signal),
   conversionEconomics: (p: PageParams & { scenario?: string; uwi?: string; search?: string } = {}, signal?: AbortSignal) =>
     apiGet<EconomicsResponse>('/api/conversion-economics', { ...p }, signal),
+  analytics: (signal?: AbortSignal) => apiGet<AnalyticsResponse>('/api/analytics', {}, signal),
   simulationStatus: (signal?: AbortSignal) => apiGet<SimulationStatus>('/api/simulation/status', {}, signal),
 }
