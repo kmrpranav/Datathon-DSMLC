@@ -35,3 +35,16 @@ export function StatusBadge({ status }: { status: string | null }) {
   const tone: Tone = status === 'Producing' ? 'green' : status === 'Injecting' ? 'blue' : status === 'Suspended' ? 'amber' : 'neutral'
   return <Badge tone={tone}>{status}</Badge>
 }
+
+/** Marks a well with evidence of both producing and injecting historically. */
+export function DualTag({ className }: { className?: string }) {
+  return (
+    <span
+      title="Historical dual-role well: records show both production and injection"
+      className={clsx('inline-flex items-center gap-1 rounded-full border border-line bg-[#FBFAF7] px-1.5 py-px text-[10.5px] font-medium text-muted whitespace-nowrap', className)}
+    >
+      <span className="size-2 rounded-full bg-injection" style={{ boxShadow: '0 0 0 1.5px #9B7055' }} />
+      Dual-role
+    </span>
+  )
+}

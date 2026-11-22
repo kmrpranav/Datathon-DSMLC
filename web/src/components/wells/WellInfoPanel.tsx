@@ -2,9 +2,9 @@ import type { ReactNode } from 'react'
 import { ArrowRight, Droplets, MapPin, X } from 'lucide-react'
 import clsx from 'clsx'
 import type { Well } from '../../types/well'
-import { formatCoord, formatDate, formatNumber, provinceName } from '../../lib/format'
+import { formatCell, formatCoord, formatDate, formatNumber, prettyColumn, provinceName } from '../../lib/format'
 import { Button } from '../ui/Button'
-import { StatusBadge, WellTypeBadge } from '../ui/Badge'
+import { Badge, DualTag, StatusBadge, WellTypeBadge } from '../ui/Badge'
 
 interface WellInfoPanelProps {
   well: Well
@@ -22,7 +22,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-function Measure({ label, value, unit, date }: { label: string; value: number | null; unit: string; date: string | null }) {
+function Measure({ label, value, unit, date }: { label: string; value: number | null | undefined; unit: string; date: string | null | undefined }) {
   const v = formatNumber(value)
   return (
     <div className="rounded-xl border border-line bg-[#FBFAF7] px-3 py-2.5">
@@ -41,7 +41,12 @@ function Measure({ label, value, unit, date }: { label: string; value: number | 
   )
 }
 
+const roleText = (v: boolean | null) => (v === true ? 'Yes' : v === false ? 'No' : 'No evidence')
+const PERF_TONE: Record<string, 'green' | 'amber' | 'neutral'> = { good: 'green', moderate: 'amber', low: 'neutral' }
+
 export function WellInfoPanel({ well, onClose, onViewDetails, className }: WellInfoPanelProps) {
+  const fromSnapshot = well.latestOilM3 !== undefined
+  const metrics = Object.entries(well.metrics).filter(([, v]) => v !== null && v !== '')
   const measures =
     well.wellType === 'injection'
       ? [
@@ -75,7 +80,23 @@ export function WellInfoPanel({ well, onClose, onViewDetails, className }: WellI
 
       <div className="flex-1 overflow-y-auto px-4">
         <dl className="divide-y divide-line">
-          <Row label="Well type"><WellTypeBadge type={well.wellType} /></Row>
+          <Row label="Current type">
+            <div className="flex flex-col items-end gap-1">
+              <WellTypeBadge type={well.wellType} />
+              {well.roles.dualRole && <DualTag />}
+            </div>
+          </Row>
+          <Row label="Has produced">{roleText(well.roles.hasProducedHistorically)}</Row>
+          <Row label="Has injected">{roleText(well.roles.hasInjectedHistorically)}</Row>
+          {!fromSnapshot && (
+            <Row label="Performance">
+              {well.performanceClass ? (
+                <Badge tone={PERF_TONE[well.performanceClass.toLowerCase()] ?? 'neutral'}>{well.performanceClass}</Badge>
+              ) : (
+                <span className="text-muted">Not classified</span>
+              )}
+            </Row>
+          )}
           <Row label="Latest status">
             <div className="flex flex-col items-end gap-0.5">
               <StatusBadge status={well.status} />
@@ -86,18 +107,39 @@ export function WellInfoPanel({ well, onClose, onViewDetails, className }: WellI
           <Row label="Operating area">{well.operatingArea ?? <span className="text-muted">Not recorded</span>}</Row>
           <Row label="UWI"><span className="font-mono text-[12px]">{well.uwi}</span></Row>
           <Row label="Coordinates"><span className="tabular-nums">{formatCoord(well.latitude, well.longitude)}</span></Row>
-          <Row label="Records">
-            {well.recordCount.toLocaleString()} days
-            <span className="block text-[11.5px] text-muted">{formatDate(well.firstRecordDate)} – {formatDate(well.lastRecordDate)}</span>
-          </Row>
+          {well.recordCount !== undefined && (
+            <Row label="Records">
+              {well.recordCount.toLocaleString()} days
+              <span className="block text-[11.5px] text-muted">{formatDate(well.firstRecordDate)} – {formatDate(well.lastRecordDate)}</span>
+            </Row>
+          )}
         </dl>
 
-        <p className="mt-3 mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Latest recorded measurements</p>
-        <div className="grid grid-cols-2 gap-2 pb-4">
-          {measures.map((m) => (
-            <Measure key={m.label} {...m} />
-          ))}
-        </div>
+        {fromSnapshot ? (
+          <>
+            <p className="mt-3 mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Latest recorded measurements</p>
+            <div className="grid grid-cols-2 gap-2 pb-4">
+              {measures.map((m) => (
+                <Measure key={m.label} {...m} />
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="mt-3 mb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Performance metrics</p>
+            {metrics.length ? (
+              <dl className="divide-y divide-line pb-3">
+                {metrics.map(([k, v]) => (
+                  <Row key={k} label={prettyColumn(k)}>
+                    <span className="tabular-nums">{formatCell(v)}</span>
+                  </Row>
+                ))}
+              </dl>
+            ) : (
+              <p className="pb-4 text-[12.5px] text-muted">No performance record for this well in bushra_well_performance.</p>
+            )}
+          </>
+        )}
       </div>
 
       <footer className="border-t border-line p-3">

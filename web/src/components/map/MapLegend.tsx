@@ -4,6 +4,8 @@ interface LegendItem {
   label: string
   color: string
   count?: number
+  /** Ring colour: draws the swatch as a filled dot with a coloured outline. */
+  ring?: string
 }
 
 export function MapLegend({ items, className, title = 'Well type' }: { items: LegendItem[]; className?: string; title?: string }) {
@@ -13,7 +15,11 @@ export function MapLegend({ items, className, title = 'Well type' }: { items: Le
       <ul className="flex flex-col gap-1.5">
         {items.map((i) => (
           <li key={i.label} className="flex items-center gap-2.5 text-[12.5px] text-ink">
-            <span className="size-3 rounded-full ring-2 ring-white shadow-[0_0_0_1px_rgb(0_0_0/0.1)]" style={{ background: i.color }} />
+            {i.ring ? (
+              <span className="size-3 rounded-full" style={{ background: i.color, boxShadow: `0 0 0 2px ${i.ring}` }} />
+            ) : (
+              <span className="size-3 rounded-full ring-2 ring-white shadow-[0_0_0_1px_rgb(0_0_0/0.1)]" style={{ background: i.color }} />
+            )}
             <span>{i.label}</span>
             {i.count !== undefined && <span className="ml-auto pl-3 tabular-nums text-muted">{i.count.toLocaleString()}</span>}
           </li>

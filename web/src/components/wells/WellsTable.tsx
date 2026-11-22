@@ -3,10 +3,10 @@ import clsx from 'clsx'
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, SearchX } from 'lucide-react'
 import type { Well } from '../../types/well'
 import { formatDate, formatNumber } from '../../lib/format'
-import { StatusBadge, WellTypeBadge } from '../ui/Badge'
+import { Badge, DualTag, StatusBadge, WellTypeBadge } from '../ui/Badge'
 import { EmptyState } from '../ui/States'
 
-type SortKey = 'uwi' | 'wellName' | 'province' | 'operatingArea' | 'wellType' | 'status' | 'latestOilM3' | 'latestInjectedWaterM3'
+type SortKey = 'uwi' | 'wellName' | 'province' | 'operatingArea' | 'wellType' | 'status' | 'performanceClass' | 'latestOilM3' | 'latestInjectedWaterM3'
 interface Column {
   key: SortKey
   label: string
@@ -14,16 +14,21 @@ interface Column {
   className?: string
 }
 
-const COLUMNS: Column[] = [
+const BASE_COLUMNS: Column[] = [
   { key: 'uwi', label: 'UWI' },
   { key: 'wellName', label: 'Well name', className: 'min-w-[200px]' },
   { key: 'province', label: 'Prov.' },
   { key: 'operatingArea', label: 'Operating area' },
   { key: 'wellType', label: 'Type' },
   { key: 'status', label: 'Status' },
+]
+const PERFORMANCE_COLUMN: Column = { key: 'performanceClass', label: 'Performance' }
+// Only the local parquet snapshot has daily "latest" readings.
+const LATEST_COLUMNS: Column[] = [
   { key: 'latestOilM3', label: 'Latest oil (m³/d)', numeric: true },
   { key: 'latestInjectedWaterM3', label: 'Latest water inj. (m³/d)', numeric: true },
 ]
+const PERF_TONE: Record<string, 'green' | 'amber' | 'neutral'> = { good: 'green', moderate: 'amber', low: 'neutral' }
 
 const PAGE_SIZES = [10, 25, 50]
 
@@ -38,6 +43,12 @@ export function WellsTable({ wells, selectedId, onSelect }: WellsTableProps) {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(10)
   const rowRefs = useRef(new Map<number, HTMLTableRowElement>())
+  const hasPerformance = useMemo(() => wells.some((w) => w.performanceClass), [wells])
+  const hasLatest = useMemo(() => wells.some((w) => w.latestOilM3 !== undefined), [wells])
+  const COLUMNS = useMemo(
+    () => [...BASE_COLUMNS, ...(hasPerformance ? [PERFORMANCE_COLUMN] : []), ...(hasLatest ? LATEST_COLUMNS : [])],
+    [hasPerformance, hasLatest],
+  )
 
   const sorted = useMemo(() => {
     const { key, dir } = sort
@@ -72,7 +83,7 @@ export function WellsTable({ wells, selectedId, onSelect }: WellsTableProps) {
 
   const rows = sorted.slice(page * pageSize, page * pageSize + pageSize)
   const toggleSort = (key: SortKey) =>
-    setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: COLUMNS.find((c) => c.key === key)?.numeric ? 'desc' : 'asc' }))
+    setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: [...BASE_COLUMNS, ...LATEST_COLUMNS].find((c) => c.key === key)?.numeric ? 'desc' : 'asc' }))
 
   if (!wells.length) {
     return <EmptyState icon={<SearchX className="size-5" />} title="No wells match these filters" description="Try a different province, operating area, or search term — or reset the filters." />
@@ -81,7 +92,7 @@ export function WellsTable({ wells, selectedId, onSelect }: WellsTableProps) {
   return (
     <div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left text-[13px]">
+        <table className="w-full min-w-[900px] border-separate border-spacing-0 text-left text-[13px]">
           <thead>
             <tr>
               {COLUMNS.map((c) => {
@@ -136,14 +147,28 @@ export function WellsTable({ wells, selectedId, onSelect }: WellsTableProps) {
                   <td className="border-b border-line px-4 py-3 font-medium text-ink">{w.wellName ?? <Missing />}</td>
                   <td className="border-b border-line px-4 py-3 text-[#5F5A53]">{w.province ?? <Missing />}</td>
                   <td className="border-b border-line px-4 py-3 whitespace-nowrap text-[#5F5A53]">{w.operatingArea ?? <Missing />}</td>
-                  <td className="border-b border-line px-4 py-3"><WellTypeBadge type={w.wellType} /></td>
+                  <td className="border-b border-line px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <WellTypeBadge type={w.wellType} />
+                      {w.roles.dualRole && <DualTag />}
+                    </div>
+                  </td>
                   <td className="border-b border-line px-4 py-3"><StatusBadge status={w.status} /></td>
-                  <td className="border-b border-line px-4 py-3 text-right tabular-nums" title={w.latestOilDate ? `Recorded ${formatDate(w.latestOilDate)}` : undefined}>
-                    {formatNumber(w.latestOilM3) ?? <Missing />}
-                  </td>
-                  <td className="border-b border-line px-4 py-3 text-right tabular-nums" title={w.latestInjectedWaterDate ? `Recorded ${formatDate(w.latestInjectedWaterDate)}` : undefined}>
-                    {formatNumber(w.latestInjectedWaterM3) ?? <Missing />}
-                  </td>
+                  {hasPerformance && (
+                    <td className="border-b border-line px-4 py-3">
+                      {w.performanceClass ? <Badge tone={PERF_TONE[w.performanceClass.toLowerCase()] ?? 'neutral'}>{w.performanceClass}</Badge> : <Missing />}
+                    </td>
+                  )}
+                  {hasLatest && (
+                    <>
+                      <td className="border-b border-line px-4 py-3 text-right tabular-nums" title={w.latestOilDate ? `Recorded ${formatDate(w.latestOilDate)}` : undefined}>
+                        {formatNumber(w.latestOilM3) ?? <Missing />}
+                      </td>
+                      <td className="border-b border-line px-4 py-3 text-right tabular-nums" title={w.latestInjectedWaterDate ? `Recorded ${formatDate(w.latestInjectedWaterDate)}` : undefined}>
+                        {formatNumber(w.latestInjectedWaterM3) ?? <Missing />}
+                      </td>
+                    </>
+                  )}
                 </tr>
               )
             })}

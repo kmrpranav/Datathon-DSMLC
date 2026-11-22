@@ -17,3 +17,11 @@ export const colors = {
 export const mapStyle = {
   url: 'mapbox://styles/mapbox/standard',
 }
+
+/** Colours for the existing performance labels (unknown labels fall back to `unknown`). */
+export const performanceColors: Record<string, string> = {
+  good: '#6B9E74',
+  moderate: '#E0B25C',
+  low: '#C98A6B',
+}
+export const performanceColor = (cls: string) => performanceColors[cls.toLowerCase()] ?? colors.unknown

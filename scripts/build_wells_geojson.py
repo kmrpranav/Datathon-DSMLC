@@ -10,6 +10,11 @@ Classification rules (no random assignment):
      `well_daily_status`: "Injecting" -> injection, "Producing" -> production.
   3. Otherwise the well is "unknown".
 
+Historical roles: a well has produced if any row has flow_direction
+"production" or oil_produced_m3 > 0; it has injected if any row has
+flow_direction "injection" or injected water / injection volume > 0. Wells
+with both are flagged `dualRole` (roles are not treated as exclusive).
+
 Latest measurements are the most recent non-null values (with their dates);
 missing values stay null — nothing is imputed.
 """
@@ -42,6 +47,8 @@ base AS (
     max(production_date) FILTER (WHERE gas_produced_e3m3 IS NOT NULL) AS gas_date,
     arg_max(injected_water_m3, production_date) FILTER (WHERE injected_water_m3 IS NOT NULL) AS inj_water_m3,
     max(production_date) FILTER (WHERE injected_water_m3 IS NOT NULL) AS inj_water_date,
+    coalesce(bool_or(flow_direction = 'production' OR oil_produced_m3 > 0), false) AS ever_produced,
+    coalesce(bool_or(flow_direction = 'injection' OR injected_water_m3 > 0 OR injection_volume_m3 > 0), false) AS ever_injected,
     min(production_date) AS first_date,
     max(production_date) AS last_date,
     count(*) AS record_count
@@ -90,7 +97,16 @@ def main():
                 "wellName": r["well_name"],
                 "province": r["province"],
                 "operatingArea": r["field_operating_area"],
-                "wellType": classify(r["flow_direction"], r["status"]),
+                "wellType": (wt := classify(r["flow_direction"], r["status"])),
+                "roles": {
+                    "currentRole": wt,
+                    "currentRoleSource": "flowDirection" if r["flow_direction"] in ("injection", "production") else ("status" if wt != "unknown" else None),
+                    "hasProducedHistorically": bool(r["ever_produced"]) or wt == "production",
+                    "hasInjectedHistorically": bool(r["ever_injected"]) or wt == "injection",
+                    "dualRole": (bool(r["ever_produced"]) or wt == "production") and (bool(r["ever_injected"]) or wt == "injection"),
+                },
+                "performanceClass": None,
+                "metrics": {},
                 "flowDirection": r["flow_direction"],
                 "status": r["status"],
                 "statusDate": d(r["status_date"]),
@@ -112,6 +128,7 @@ def main():
         "source": "daily_production.parquet",
         "featureCount": len(features),
         "skippedNoCoordinates": skipped,
+        "dualRoleWells": sum(1 for x in features if x["properties"]["roles"]["dualRole"]),
     }
     OUT.write_text(json.dumps({"type": "FeatureCollection", "metadata": meta, "features": features}, separators=(",", ":")))
     print(json.dumps(meta), "->", OUT.relative_to(ROOT))

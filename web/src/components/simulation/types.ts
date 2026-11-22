@@ -34,5 +34,11 @@ export interface SimulationEngine {
   run: (scenario: SimulationScenario) => Promise<SimulationResult>
 }
 
-/** No engine yet: callers must handle `null` and show a "coming soon" state. */
+/**
+ * No engine yet: callers must handle `null`. When a Databricks Model Serving
+ * endpoint exists, implement this by calling the backend's
+ * `POST /api/simulation/run` (backend/src/services/modelServing.ts), which
+ * currently answers 501 INFERENCE_NOT_CONNECTED. The browser never calls
+ * Databricks directly.
+ */
 export const simulationEngine: SimulationEngine | null = null

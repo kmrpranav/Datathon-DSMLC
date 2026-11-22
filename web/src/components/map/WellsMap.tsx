@@ -17,6 +17,16 @@ const L = {
 const NONE = ['==', ['get', 'id'], -1] as mapboxgl.FilterSpecification
 const byId = (id: number) => ['==', ['get', 'id'], id] as mapboxgl.FilterSpecification
 
+const isDual: mapboxgl.ExpressionSpecification = ['to-boolean', ['get', 'dual']]
+/** Zoom must stay the top-level interpolate input, so the dual check sits inside each stop. */
+const pointStroke: mapboxgl.ExpressionSpecification = ['interpolate', ['linear'], ['zoom'], 6, ['case', isDual, 1.8, 0.8], 12, ['case', isDual, 2.8, 1.6]]
+/** Dual-role wells get a ring in the *other* role's colour (fill = current role). */
+const dualRing: mapboxgl.ExpressionSpecification = [
+  'case', ['!', isDual], '#FFFFFF',
+  ['==', ['get', 'wellType'], 'injection'], colors.production,
+  colors.injection,
+]
+
 const typeColor: mapboxgl.ExpressionSpecification = [
   'match', ['get', 'wellType'],
   'injection', colors.injection,
@@ -79,8 +89,8 @@ function addWellLayers(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
     paint: {
       'circle-color': typeColor,
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 3.5, 10, 5, 14, 7.5],
-      'circle-stroke-color': '#FFFFFF',
-      'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 6, 0.8, 12, 1.6],
+      'circle-stroke-color': dualRing,
+      'circle-stroke-width': pointStroke,
     },
   })
   map.addLayer({
@@ -91,8 +101,8 @@ function addWellLayers(map: mapboxgl.Map, data: GeoJSON.FeatureCollection) {
     paint: {
       'circle-color': typeColor,
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 6, 14, 10.5],
-      'circle-stroke-color': '#FFFFFF',
-      'circle-stroke-width': 2.5,
+      'circle-stroke-color': dualRing,
+      'circle-stroke-width': ['case', isDual, 3, 2.5],
     },
   })
   map.addLayer({
@@ -159,7 +169,11 @@ export function WellsMap({ wells, selectedId, onSelect, fitKey, className, child
       title.textContent = name
       const sub = document.createElement('div')
       sub.className = 'text-[#817B73] capitalize'
-      sub.textContent = type === 'unknown' ? 'Unclassified well' : `${type} well`
+      const dual = f.properties?.dual === true || f.properties?.dual === 'true'
+      const perf = f.properties?.performance as string | undefined
+      sub.textContent = [type === 'unknown' ? 'Unclassified well' : `${type} well`, dual ? 'dual-role history' : null, perf && perf !== 'null' ? `${perf} performance` : null]
+        .filter(Boolean)
+        .join(' · ')
       el.append(title, sub)
       popup.setLngLat((f.geometry as GeoJSON.Point).coordinates as [number, number]).setDOMContent(el).addTo(map)
     })

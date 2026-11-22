@@ -1,0 +1,10 @@
+node_modules
+node_modules.nosync
+dist
+coverage
+# Secrets — never commit real credentials
+.env
+.env.*
+!.env.example
+# Output of `npm run inspect` (contains sample rows)
+schema-report.json

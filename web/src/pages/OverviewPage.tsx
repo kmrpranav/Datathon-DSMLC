@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { ResearchCard } from '../components/overview/ResearchCard'
+import { LiveSummary } from '../components/overview/LiveSummary'
 import { RESEARCH_ENTRIES } from '../content/research'
 import { datasetMeta } from '../data/datasetMeta'
 import { formatDate } from '../lib/format'
@@ -89,12 +90,25 @@ export default function OverviewPage() {
         </div>
       </section>
 
+      {/* Live field summary (Databricks) */}
+      <section aria-labelledby="live-heading">
+        <SectionHeading
+          id="live-heading"
+          eyebrow="Field snapshot"
+          title="Field summary from Databricks"
+          description="Aggregated live from the team's Unity Catalog tables: well master, performance classes, injector–producer pairs and saved conversion results."
+        />
+        <div className="mt-6">
+          <LiveSummary />
+        </div>
+      </section>
+
       {/* Dataset */}
       <section aria-labelledby="dataset-heading">
         <SectionHeading
           id="dataset-heading"
           eyebrow="The data"
-          title="Dataset overview"
+          title="Source datasets"
           description={`Daily readings from ${formatDate(datasetMeta.productionDateRange.start)} to ${formatDate(datasetMeta.productionDateRange.end)} across Alberta, Saskatchewan and British Columbia.`}
         />
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">

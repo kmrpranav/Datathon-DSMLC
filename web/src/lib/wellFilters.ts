@@ -5,7 +5,8 @@ export function filterWells(wells: Well[], f: WellFilters): Well[] {
   return wells.filter((w) => {
     if (f.province !== 'all' && w.province !== f.province) return false
     if (f.operatingArea !== 'all' && w.operatingArea !== f.operatingArea) return false
-    if (f.wellType !== 'all' && w.wellType !== f.wellType) return false
+    if (f.wellType === 'dual' ? !w.roles.dualRole : f.wellType !== 'all' && w.wellType !== f.wellType) return false
+    if (f.performance !== 'all' && w.performanceClass !== f.performance) return false
     if (q) {
       const hay = `${w.uwi} ${w.formattedUwi ?? ''} ${w.wellName ?? ''}`.toLowerCase()
       if (!hay.includes(q)) return false
@@ -30,7 +31,7 @@ export function wellsToGeoJSON(wells: Well[]): GeoJSON.FeatureCollection<GeoJSON
       type: 'Feature',
       id: w.id,
       geometry: { type: 'Point', coordinates: [w.longitude, w.latitude] },
-      properties: { id: w.id, uwi: w.uwi, wellName: w.wellName, wellType: w.wellType },
+      properties: { id: w.id, uwi: w.uwi, wellName: w.wellName, wellType: w.wellType, dual: w.roles.dualRole, performance: w.performanceClass },
     })),
   }
 }
@@ -45,4 +46,12 @@ export function boundsOf(wells: Well[]): [[number, number], [number, number]] | 
     if (w.latitude > maxY) maxY = w.latitude
   }
   return [[minX, minY], [maxX, maxY]]
+}
+
+const CLASS_RANK: Record<string, number> = { good: 0, high: 0, moderate: 1, medium: 1, low: 2, poor: 2 }
+/** Distinct performance classes present in the data, Good → Moderate → Low first. */
+export function performanceClassesFor(wells: Well[]): string[] {
+  const set = new Set<string>()
+  for (const w of wells) if (w.performanceClass) set.add(w.performanceClass)
+  return [...set].sort((a, b) => (CLASS_RANK[a.toLowerCase()] ?? 9) - (CLASS_RANK[b.toLowerCase()] ?? 9) || a.localeCompare(b))
 }
