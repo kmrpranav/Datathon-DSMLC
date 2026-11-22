@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-canvas: #F7F4EE;
+  --color-sidebar: #F0EBE3;
+  --color-surface: #FFFFFF;
+  --color-ink: #292724;
+  --color-muted: #817B73;
+  --color-line: #E6E0D7;
+  --color-primary: #3778C2;
+  --color-primary-hover: #285F9D;
+  --color-primary-soft: #EAF1F9;
+  --color-injection: #79BCE8;
+  --color-production: #9B7055;
+  --color-unknown: #B8B1A7;
+
+  --shadow-soft: 0 1px 2px rgb(41 39 36 / 0.04), 0 4px 16px rgb(41 39 36 / 0.04);
+  --shadow-float: 0 2px 6px rgb(41 39 36 / 0.06), 0 12px 32px rgb(41 39 36 / 0.08);
+
+  --animate-page-in: page-in 280ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-fade-in: fade-in 180ms ease-out both;
+  --animate-slide-in: slide-in 240ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+
+  @keyframes page-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateX(12px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+@layer base {
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    @apply bg-canvas text-ink font-sans;
+    font-feature-settings: "cv11", "ss01";
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  ::selection { background: var(--color-primary-soft); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+}
+
+/* Mapbox control polish */
+.mapboxgl-ctrl-group {
+  border-radius: 10px !important;
+  box-shadow: var(--shadow-soft) !important;
+  border: 1px solid var(--color-line);
+  overflow: hidden;
+}
+.mapboxgl-ctrl-group button { width: 32px !important; height: 32px !important; }
+.mapboxgl-ctrl-attrib { font-size: 10px; background: rgb(255 255 255 / 0.7) !important; }
+.mapboxgl-popup-content {
+  border-radius: 10px !important;
+  padding: 8px 10px !important;
+  box-shadow: var(--shadow-float) !important;
+  font-family: var(--font-sans);
+}
+.mapboxgl-popup-tip { display: none; }
